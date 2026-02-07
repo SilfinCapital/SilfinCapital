@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silvis Investment Journey Portfolio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent-green: #10b981;
+            --text-main: #ffffff;
+            --text-muted: #a1a1aa;
+            --border-color: #333333;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        /* --- Header --- */
+        .header-bar {
+            width: 100%;
+            background-color: var(--accent-green);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-bar h1 { font-size: 1.5rem; font-weight: 600; color: #fff; letter-spacing: 0.5px; }
+
+        .container { width: 100%; max-width: 1200px; padding: 40px 20px; }
+
+        /* --- Summary Cards --- */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .card h3 { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .card .value { font-size: 1.8rem; font-weight: 600; color: var(--accent-green); }
+        .sub-value { font-size: 0.85rem; color: var(--text-muted); margin-top: 5px; }
+
+        /* --- Main Layout: Chart Left, Table Right (on desktop) --- */
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+        
+        @media (min-width: 900px) {
+            .dashboard-layout {
+                grid-template-columns: 350px 1fr; /* Chart narrower, Table wider */
+                align-items: start;
+            }
+        }
+
+        /* --- Chart Section --- */
+        .chart-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            height: 400px;
+            position: sticky;
+            top: 100px;
+        }
+        .chart-container { position: relative; height: 100%; width: 100%; }
+
+        /* --- Table Section --- */
+        .table-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        table { width: 100%; border-collapse: collapse; min-width: 700px; }
+        th { text-align: right; padding: 15px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 0.85rem; text-transform: uppercase; white-space: nowrap; }
+        th:nth-child(1), th:nth-child(2) { text-align: left; } /* Align Rank & Stock Left */
+        
+        td { padding: 15px; border-bottom: 1px solid #333; font-size: 0.95rem; vertical-align: middle; text-align: right; }
+        td:nth-child(1), td:nth-child(2) { text-align: left; } /* Align Rank & Stock Left */
+        
+        tr:last-child td { border-bottom: none; }
+        
+        .ticker-badge {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .flag { font-size: 0.8rem; margin-left: 6px; vertical-align: middle; opacity: 0.7; }
+        .weight-bar-bg { width: 100px; height: 6px; background: #333; border-radius: 3px; display: inline-block; margin-left: 10px; }
+        .weight-bar-fill { height: 100%; background: var(--accent-green); border-radius: 3px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header-bar">
+        <h1>Silvis Investment Journey Portfolio</h1>
+    </div>
+
+    <div class="container">
+        
+        <div class="summary-grid">
+            <div class="card">
+                <h3>Total Portfolio Value</h3>
+                <div class="value" id="totalValue">R0.00</div>
+                <div class="sub-value">Real-time Estimate</div>
+            </div>
+            <div class="card">
+                <h3>Top Holding</h3>
+                <div class="value" id="topHolding">-</div>
+                <div class="sub-value" id="topHoldingWeight">0%</div>
+            </div>
+            <div class="card">
+                <h3>Total Positions</h3>
+                <div class="value" id="totalPositions">0</div>
+            </div>
+        </div>
+
+        <div class="dashboard-layout">
+            
+            <div class="chart-card">
+                <div class="chart-container">
+                    <canvas id="portfolioChart"></canvas>
+                </div>
+            </div>
+
+            <div class="table-card">
+                 <table>
+                    <thead>
+                        <tr>
+                            <th width="5%">#</th>
+                            <th>Stock</th>
+                            <th>Shares</th>
+                            <th>Avg. Buy</th>
+                            <th>Current</th>
+                            <th>Value (ZAR)</th>
+                            <th>Weight</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rankedTable"></tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- DATA FROM PORTFOLIO (3).CSV (Aggregated) ---
+        // Avg Buy Price is in original currency (USD or ZAR)
+        // Total Value is calculated dynamically based on rate below
+        const portfolioData = [
+          {
+            "Stock": "STXNDQ",
+            "FullTicker": "STXNDQ.JO",
+            "Currency": "ZAR",
+            "TotalShares": 154.8859,
+            "AvgBuy": 162.97,
+            "Current": 225.79
+          },
+          {
+            "Stock": "GOOGL",
+            "FullTicker": "GOOGL",
+            "Currency": "USD",
+            "TotalShares": 3.1450,
+            "AvgBuy": 147.44,
+            "Current": 322.86
+          },
+          {
+            "Stock": "AMZN",
+            "FullTicker": "AMZN",
+            "Currency": "USD",
+            "TotalShares": 4.4266,
+            "AvgBuy": 195.69,
+            "Current": 210.32
+          },
+          {
+            "Stock": "META",
+            "FullTicker": "META",
+            "Currency": "USD",
+            "TotalShares": 1.2769,
+            "AvgBuy": 419.61,
+            "Current": 661.46
+          },
+          {
+            "Stock": "UBER",
+            "FullTicker": "UBER",
+            "Currency": "USD",
+            "TotalShares": 7.4239,
+            "AvgBuy": 73.93,
+            "Current": 74.77
+          },
+          {
+            "Stock": "COST",
+            "FullTicker": "COST",
+            "Currency": "USD",
+            "TotalShares": 0.4801,
+            "AvgBuy": 578.87,
+            "Current": 1001.16
+          },
+          {
+            "Stock": "NFLX",
+            "FullTicker": "NFLX",
+            "Currency": "USD",
+            "TotalShares": 5.8110,
+            "AvgBuy": 78.40,
+            "Current": 82.20
+          },
+          {
+            "Stock": "MCO",
+            "FullTicker": "MCO",
+            "Currency": "USD",
+            "TotalShares": 0.8480,
+            "AvgBuy": 323.37,
+            "Current": 452.49
+          },
+          {
+            "Stock": "V",
+            "FullTicker": "V",
+            "Currency": "USD",
+            "TotalShares": 1.1280,
+            "AvgBuy": 240.28,
+            "Current": 331.58
+          },
+          {
+            "Stock": "MSFT",
+            "FullTicker": "MSFT",
+            "Currency": "USD",
+            "TotalShares": 0.8215,
+            "AvgBuy": 330.10,
+            "Current": 401.14
+          },
+          {
+            "Stock": "SPGI",
+            "FullTicker": "SPGI",
+            "Currency": "USD",
+            "TotalShares": 0.7437,
+            "AvgBuy": 364.95,
+            "Current": 439.28
+          },
+          {
+            "Stock": "STX500",
+            "FullTicker": "STX500.JO",
+            "Currency": "ZAR",
+            "TotalShares": 33.3451,
+            "AvgBuy": 85.38,
+            "Current": 117.33
+          },
+          {
+            "Stock": "QQQ",
+            "FullTicker": "QQQ",
+            "Currency": "USD",
+            "TotalShares": 0.2508,
+            "AvgBuy": 402.87,
+            "Current": 609.65
+          }
+        ];
+
+        // --- RENDER LOGIC ---
+        function renderDashboard() {
+            // ----------------------------------------------
+            // CHANGE THIS NUMBER TO ADJUST THE EXCHANGE RATE
+            const usdToZar = 16.04; 
+            // ----------------------------------------------
+
+            let totalValue = 0;
+            
+            // 1. Calculate Totals based on Rate
+            portfolioData.forEach(item => {
+                if (item.Currency === 'USD') {
+                    item.TotalValueZAR = item.TotalShares * item.Current * usdToZar;
+                } else {
+                    item.TotalValueZAR = item.TotalShares * item.Current;
+                }
+                totalValue += item.TotalValueZAR;
+            });
+
+            // 2. Sort Data (High to Low)
+            portfolioData.sort((a, b) => b.TotalValueZAR - a.TotalValueZAR);
+
+            // 3. Render Table
+            const tableBody = document.getElementById('rankedTable');
+            tableBody.innerHTML = '';
+
+            portfolioData.forEach((item, index) => {
+                const weight = (item.TotalValueZAR / totalValue) * 100;
+                
+                // Format Prices
+                const currencySym = item.Currency === 'ZAR' ? 'R' : '$';
+                const avgBuyDisplay = currencySym + item.AvgBuy.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                const curPriceDisplay = currencySym + item.Current.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                // Row HTML
+                const row = `
+                    <tr>
+                        <td style="color: var(--accent-green); font-weight: 600;">${index + 1}</td>
+                        <td>
+                            <span class="ticker-badge">${item.Stock}</span>
+                            <span class="flag">${item.Currency === 'ZAR' ? '🇿🇦' : '🇺🇸'}</span>
+                        </td>
+                        <td>${item.TotalShares.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4})}</td>
+                        <td style="color: #a1a1aa;">${avgBuyDisplay}</td>
+                        <td>${curPriceDisplay}</td>
+                        <td style="font-weight: 600; color: #fff;">R${item.TotalValueZAR.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td>
+                            <span style="color: var(--text-muted); font-size: 0.85rem; margin-right: 5px;">${weight.toFixed(1)}%</span>
+                            <div class="weight-bar-bg"><div class="weight-bar-fill" style="width: ${weight}%"></div></div>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+
+            // Update Cards
+            document.getElementById('totalValue').innerText = "R" + totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('topHolding').innerText = portfolioData[0].Stock;
+            
+            const topWeight = (portfolioData[0].TotalValueZAR / totalValue) * 100;
+            document.getElementById('topHoldingWeight').innerText = topWeight.toFixed(1) + "%";
+            document.getElementById('totalPositions').innerText = portfolioData.length;
+
+            // Render Chart
+            renderChart(portfolioData);
+        }
+
+        let myChart = null;
+        function renderChart(data) {
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
+            
+            // Destroy old chart if exists (to prevent overlapping when re-rendering)
+            if (myChart) myChart.destroy();
+
+            // Colors
+            const colors = [
+                '#10b981', '#34d399', '#059669', '#6ee7b7', '#047857',
+                '#065f46', '#a7f3d0', '#064e3b', '#3b82f6', '#60a5fa', 
+                '#2563eb', '#93c5fd', '#1d4ed8'
+            ];
+
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(i => i.Stock),
+                    datasets: [{
+                        data: data.map(i => i.TotalValueZAR),
+                        backgroundColor: colors,
+                        borderColor: '#1e1e1e',
+                        borderWidth: 2,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { 
+                            display: false 
+                        },
+                        tooltip: {
+                            backgroundColor: '#1e1e1e',
+                            borderColor: '#333',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    let val = context.parsed;
+                                    return ' R' + val.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Run
+        renderDashboard();
+    </script>
+</body>
+</html>
